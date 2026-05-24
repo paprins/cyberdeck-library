@@ -1,0 +1,3 @@
+# Build artifacts — released to GitHub, never committed
+*.tar.gz
+*.tar.gz.minisig
