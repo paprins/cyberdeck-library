@@ -1,0 +1,141 @@
+name: Release package
+
+# Build, sign, release a single content package and update manifest.json.
+#
+# Trigger manually from the Actions tab. Provide the package directory name
+# under packages/ and the version to publish. The package must already exist
+# in manifest.json (so display_name, description, category, entry are set);
+# this workflow only updates tarball_url, signature_url, version, size_bytes.
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: "Package directory under packages/ (e.g. first-aid)"
+        required: true
+        type: string
+      version:
+        description: "Version string (e.g. 1.0, 2026-05)"
+        required: true
+        type: string
+
+permissions:
+  contents: write   # create release + commit manifest update
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    environment: release
+    env:
+      PACKAGE: ${{ inputs.package }}
+      VERSION: ${{ inputs.version }}
+      TAG: ${{ inputs.package }}-v${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Need full history + write token so the manifest commit can be pushed.
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate inputs
+        run: |
+          set -euo pipefail
+          if [[ ! "$PACKAGE" =~ ^[A-Za-z0-9_-][A-Za-z0-9._-]*$ ]]; then
+            echo "::error::package name must match cyberdeck Module.id pattern"
+            exit 1
+          fi
+          if [[ ! "$VERSION" =~ ^[A-Za-z0-9._-]+$ ]]; then
+            echo "::error::version must be alphanumeric with . _ -"
+            exit 1
+          fi
+          if [[ ! -d "packages/$PACKAGE" ]]; then
+            echo "::error::packages/$PACKAGE not found"
+            exit 1
+          fi
+          if ! jq -e --arg id "$PACKAGE" '.packages[] | select(.id == $id)' manifest.json > /dev/null; then
+            echo "::error::no entry with id=$PACKAGE in manifest.json — add one first with display_name, description, category, entry"
+            exit 1
+          fi
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "::error::tag $TAG already exists — bump the version"
+            exit 1
+          fi
+
+      - name: Install minisign
+        run: sudo apt-get update -q && sudo apt-get install -y minisign
+
+      - name: Build tarball
+        id: build
+        run: |
+          set -euo pipefail
+          TARBALL="${PACKAGE}-v${VERSION}.tar.gz"
+          tar czf "$TARBALL" -C "packages/$PACKAGE" .
+          SIZE=$(stat -c%s "$TARBALL")
+          echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
+          echo "size=$SIZE" >> "$GITHUB_OUTPUT"
+          echo "Built $TARBALL ($SIZE bytes), contents:"
+          tar tzf "$TARBALL"
+
+      - name: Sign tarball
+        env:
+          MINISIGN_KEY: ${{ secrets.MINISIGN_RELEASE_KEY }}
+          MINISIGN_PASSWORD: ${{ secrets.MINISIGN_RELEASE_PASSWORD }}
+          TARBALL: ${{ steps.build.outputs.tarball }}
+        run: |
+          set -euo pipefail
+          trap 'rm -f /tmp/minisign.key' EXIT
+          echo "$MINISIGN_KEY" > /tmp/minisign.key
+          # Trusted comment MUST match the format cyberdeck verifies:
+          #   app/services/packages.py:_trusted_comment
+          echo "$MINISIGN_PASSWORD" | minisign -S -s /tmp/minisign.key \
+            -t "cyberdeck content ${PACKAGE} v${VERSION}" \
+            -m "$TARBALL"
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ env.TAG }}
+          name: ${{ env.PACKAGE }} v${{ env.VERSION }}
+          body: |
+            Cyberdeck content package: **${{ env.PACKAGE }}** v${{ env.VERSION }}
+
+            Install via the cyberdeck UI: Settings → Libraries → PICK_FROM_LIBRARY.
+          files: |
+            ${{ steps.build.outputs.tarball }}
+            ${{ steps.build.outputs.tarball }}.minisig
+
+      - name: Update manifest.json
+        env:
+          TARBALL: ${{ steps.build.outputs.tarball }}
+          SIZE: ${{ steps.build.outputs.size }}
+        run: |
+          set -euo pipefail
+          REPO="${GITHUB_REPOSITORY}"
+          BASE="https://github.com/${REPO}/releases/download/${TAG}"
+          jq --arg id "$PACKAGE" \
+             --arg version "$VERSION" \
+             --argjson size "$SIZE" \
+             --arg tarball "${BASE}/${TARBALL}" \
+             --arg sig "${BASE}/${TARBALL}.minisig" \
+             '(.packages[] | select(.id == $id))
+                |= (.version = $version
+                    | .size_bytes = $size
+                    | .tarball_url = $tarball
+                    | .signature_url = $sig)' \
+             manifest.json > manifest.json.tmp
+          mv manifest.json.tmp manifest.json
+          echo "--- updated entry ---"
+          jq --arg id "$PACKAGE" '.packages[] | select(.id == $id)' manifest.json
+
+      - name: Commit manifest update
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add manifest.json
+          if git diff --cached --quiet; then
+            echo "No manifest changes to commit"
+            exit 0
+          fi
+          git commit -m "release: ${PACKAGE} v${VERSION}"
+          git push origin HEAD:main
