@@ -8,8 +8,8 @@
         "category": "medical",
         "version": "1.0",
         "size_bytes": 3362,
-        "tarball_url": "https://github.com/paprins/cyberdeck-library/releases/download/v1.0/first-aid-v1.tar.gz",
-        "signature_url": "https://github.com/paprins/cyberdeck-library/releases/download/v1.0/first-aid-v1.tar.gz.minisig",
+        "tarball_url": "https://github.com/paprins/cyberdeck-library/releases/download/v0.0.1/first-aid-v1.tar.gz",
+        "signature_url": "https://github.com/paprins/cyberdeck-library/releases/download/v0.0.1/first-aid-v1.tar.gz.minisig",
         "entry": "index.md"
       }
     ]
