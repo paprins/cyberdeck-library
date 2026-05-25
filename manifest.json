@@ -1,16 +1,16 @@
 {
-    "title": "Cyberdeck Library",
-    "packages": [
-      {
-        "id": "first-aid",
-        "display_name": "Eerste Hulp",
-        "description": "Snelle naslag voor noodsituaties (Nederlands).",
-        "category": "medical",
-        "version": "1.0",
-        "size_bytes": 3362,
-        "tarball_url": "https://github.com/paprins/cyberdeck-library/releases/download/v0.0.1/first-aid-v1.tar.gz",
-        "signature_url": "https://github.com/paprins/cyberdeck-library/releases/download/v0.0.1/first-aid-v1.tar.gz.minisig",
-        "entry": "index.md"
-      }
-    ]
-  }
+  "title": "Cyberdeck Library",
+  "packages": [
+    {
+      "id": "first-aid",
+      "display_name": "Eerste Hulp",
+      "description": "Snelle naslag voor noodsituaties (Nederlands).",
+      "category": "medical",
+      "version": "1.0.1",
+      "size_bytes": 410604,
+      "tarball_url": "https://github.com/paprins/cyberdeck-library/releases/download/first-aid-v1.0.1/first-aid-v1.0.1.tar.gz",
+      "signature_url": "https://github.com/paprins/cyberdeck-library/releases/download/first-aid-v1.0.1/first-aid-v1.0.1.tar.gz.minisig",
+      "entry": "index.md"
+    }
+  ]
+}
