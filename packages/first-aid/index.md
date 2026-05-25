@@ -2,6 +2,8 @@
 
 Snelle naslag voor noodsituaties. Bij elk levensbedreigend probleem: **bel 112**.
 
+(dit is met een kleine wijziging)
+
 > Deze informatie vervangt geen medische zorg. Volg altijd de instructies van de meldkamer of een hulpverlener.
 
 ---
